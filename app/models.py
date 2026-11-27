@@ -1,6 +1,7 @@
 from datetime import datetime
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pgvector.sqlalchemy import Vector
 from app.database import Base
 
 class Document(Base):
@@ -20,4 +21,5 @@ class DocumentChunk(Base):
     chunk_index: Mapped[int] = mapped_column(Integer)
     content: Mapped[str] = mapped_column(Text)
     source_reference: Mapped[str] = mapped_column(String(100))
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1024), nullable=True)
     document: Mapped[Document] = relationship(back_populates="chunks")

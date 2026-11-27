@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.config import ALLOWED_EXTENSIONS, MAX_UPLOAD_BYTES, UPLOAD_DIR
+from app.services.embeddings import embed_texts
 from app.database import get_db
 from app.models import Document, DocumentChunk
 from app.schemas import DocumentSummary
@@ -39,7 +40,11 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
         if not chunks:
             raise HTTPException(422, "No readable text was found in this document.")
         document = Document(filename=filename[:255], stored_path=stored.name, file_type=extension)
-        document.chunks = [DocumentChunk(chunk_index=i, content=body, source_reference=ref) for i, (body, ref) in enumerate(chunks)]
+        vectors = await embed_texts([body for body, _ in chunks])
+        document.chunks = [
+            DocumentChunk(chunk_index=i, content=body, source_reference=ref, embedding=vectors[i])
+            for i, (body, ref) in enumerate(chunks)
+        ]
         db.add(document)
         db.commit()
         db.refresh(document)
