@@ -1,3 +1,8 @@
-# Dependency installation will be added with the working backend.
-# Planned: FastAPI, Uvicorn, LangGraph, PostgreSQL/pgvector client,
-# PDF and DOCX parsers, HTTP client, provider integrations, pytest.
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.34,<1.0
+sqlalchemy>=2.0,<3.0
+psycopg[binary]>=3.2,<4.0
+pgvector>=0.4,<1.0
+python-multipart>=0.0.20,<1.0
+pypdf>=5.0,<7.0
+python-docx>=1.1,<2.0
