@@ -23,6 +23,10 @@ async def lifespan(_: FastAPI):
         with engine.begin() as connection:
             connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         Base.metadata.create_all(bind=engine)
+        # create_all does not add columns to tables created by earlier app versions.
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE chat_threads ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE"))
+            connection.execute(text("ALTER TABLE chat_threads ADD COLUMN IF NOT EXISTS is_archived BOOLEAN NOT NULL DEFAULT FALSE"))
     except SQLAlchemyError as exc:
         raise RuntimeError("Database unavailable. Start PostgreSQL and check DATABASE_URL in your .env file.") from exc
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

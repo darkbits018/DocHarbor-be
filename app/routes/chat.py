@@ -3,6 +3,7 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from app.ai.graph import chat_graph
 from app.ai.prompts import UNSUPPORTED_ANSWER
@@ -16,11 +17,54 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 class ChatInput(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
+    thread_id: int | None = None
 
 
-@router.get("/history")
-def get_chat_history(db: Session = Depends(get_db)) -> dict:
-    thread = db.get(ChatThread, 1)
+class ThreadUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    is_pinned: bool | None = None
+    is_archived: bool | None = None
+
+
+@router.get("/threads")
+def list_threads(db: Session = Depends(get_db)) -> list[dict]:
+    threads = db.query(ChatThread).filter(ChatThread.is_archived.is_(False)).order_by(ChatThread.is_pinned.desc(), ChatThread.created_at.desc(), ChatThread.id.desc()).all()
+    return [{"id": thread.id, "title": thread.title, "is_pinned": thread.is_pinned} for thread in threads]
+
+
+@router.patch("/threads/{thread_id}")
+def update_thread(thread_id: int, payload: ThreadUpdate, db: Session = Depends(get_db)) -> dict:
+    thread = db.get(ChatThread, thread_id)
+    if thread is None:
+        raise HTTPException(404, "Chat thread not found.")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(thread, field, value)
+    db.commit()
+    return {"id": thread.id, "title": thread.title, "is_pinned": thread.is_pinned, "is_archived": thread.is_archived}
+
+
+@router.delete("/threads/{thread_id}", status_code=204)
+def delete_thread(thread_id: int, db: Session = Depends(get_db)) -> None:
+    thread = db.get(ChatThread, thread_id)
+    if thread is None:
+        raise HTTPException(404, "Chat thread not found.")
+    db.delete(thread)
+    db.commit()
+
+
+@router.post("/threads")
+def create_thread(db: Session = Depends(get_db)) -> dict:
+    next_id = (db.scalar(select(func.max(ChatThread.id))) or 0) + 1
+    thread = ChatThread(id=next_id, title="New chat")
+    db.add(thread)
+    db.commit()
+    db.refresh(thread)
+    return {"id": thread.id, "title": thread.title}
+
+
+@router.get("/threads/{thread_id}")
+def get_chat_history(thread_id: int, db: Session = Depends(get_db)) -> dict:
+    thread = db.get(ChatThread, thread_id)
     if thread is None:
         return {"thread_id": None, "messages": []}
     return {
@@ -74,11 +118,16 @@ def chat(payload: ChatInput, db: Session = Depends(get_db)) -> dict:
         "supported" if sources else "unsupported", len(sources),
         (time.perf_counter() - started) * 1000,
     )
-    thread = db.get(ChatThread, 1)
+    thread = db.get(ChatThread, payload.thread_id) if payload.thread_id else None
+    if payload.thread_id and thread is None:
+        raise HTTPException(404, "Chat thread not found.")
     if thread is None:
-        thread = ChatThread(id=1, title=payload.question[:200])
+        next_id = (db.scalar(select(func.max(ChatThread.id))) or 0) + 1
+        thread = ChatThread(id=next_id, title=payload.question[:200])
         db.add(thread)
         db.flush()
+    elif thread.title == "New chat":
+        thread.title = payload.question[:200]
     db.add_all([
         ChatMessage(thread_id=thread.id, role="user", content=payload.question),
         ChatMessage(thread_id=thread.id, role="assistant", content=answer, sources=sources),
