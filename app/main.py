@@ -8,6 +8,8 @@ from app.config import UPLOAD_DIR
 from app.database import Base, engine
 from app import models
 from app.routes.documents import router as documents_router
+from app.routes.chat import router as chat_router
+from app.routes.settings import router as settings_router
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -23,6 +25,8 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Doc Harbour API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.include_router(documents_router)
+app.include_router(chat_router)
+app.include_router(settings_router)
 
 @app.get("/api/health")
 def health() -> JSONResponse:

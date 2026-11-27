@@ -1,6 +1,6 @@
 # Doc Harbour Backend
 
-A local Python API for uploading business documents, storing text chunks and Cloudflare embeddings in PostgreSQL with pgvector, and searching for relevant source chunks. LangGraph chat follows next.
+A local Python API for uploading business documents, storing text chunks and Cloudflare embeddings in PostgreSQL with pgvector, and answering questions through LangGraph with citations and an unsupported-answer fallback.
 
 ## Requirements
 
@@ -54,6 +54,11 @@ The API accepts PDF, DOCX, and UTF-8 TXT files up to 20 MB by default. Duplicate
 - `GET /api/health` — database health.
 - `POST /api/documents` — upload one document.
 - `GET /api/documents` — list uploaded documents and chunk counts.
+- `DELETE /api/documents/{id}` — delete a document, its chunks, embeddings, and local original.
+- `PUT /api/settings` / `GET /api/settings` — accept the provider, model, API key, optional OpenAI-compatible base URL, and owner contact URL from the frontend BYOK form. Chat credentials are not environment settings; the backend keeps them in memory only for the current process and never returns the key.
+- `POST /api/chat` — ask a question and receive an answer with document references.
+
+Supported chat providers: OpenAI, Anthropic, and Google. Model names are entered as provider-specific values. The answer workflow retrieves up to five chunks and returns the exact unsupported-answer message when the closest result is below the configured relevance threshold or the model omits valid source citations. This citation check is a guardrail, not a guarantee that every generated claim is entailed by its source.
 - Similarity retrieval is available in `app.services.retrieval.search_chunks` and will be used by the upcoming chat endpoint.
 
 Tables are created at API startup. `DATABASE_URL` is the only database setting the app needs, so later you can point it at a local PostgreSQL + pgvector installation by changing that value. Authentication is not implemented; keep this development server local and do not expose it publicly. Do not put real client documents in the free development database.

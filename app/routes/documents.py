@@ -1,4 +1,5 @@
 import logging
+import httpx
 from pathlib import Path
 from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -6,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.config import ALLOWED_EXTENSIONS, MAX_UPLOAD_BYTES, UPLOAD_DIR
-from app.services.embeddings import embed_texts
+from app.services.embeddings import EmbeddingConfigurationError, embed_texts
 from app.database import get_db
 from app.models import Document, DocumentChunk
 from app.schemas import DocumentSummary
@@ -60,9 +61,25 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
         db.rollback()
         stored.unlink(missing_ok=True)
         logger.exception("Could not process uploaded file")
+        if isinstance(exc, httpx.HTTPError):
+            raise HTTPException(502, "Cloudflare embedding request failed.") from exc
+        if isinstance(exc, EmbeddingConfigurationError):
+            raise HTTPException(503, str(exc)) from exc
         raise HTTPException(422, "Could not read this file. Check that it is a valid, text-based document.") from exc
 
 @router.get("", response_model=list[DocumentSummary])
 def list_documents(db: Session = Depends(get_db)) -> list[DocumentSummary]:
     docs = db.scalars(select(Document).order_by(Document.uploaded_at.desc())).all()
     return [DocumentSummary(id=d.id, filename=d.filename, file_type=d.file_type, uploaded_at=d.uploaded_at, chunk_count=len(d.chunks)) for d in docs]
+
+@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_document(document_id: int, db: Session = Depends(get_db)) -> None:
+    document = db.get(Document, document_id)
+    if document is None:
+        raise HTTPException(404, "Document not found.")
+    stored = (UPLOAD_DIR / Path(document.stored_path).name).resolve()
+    if UPLOAD_DIR not in stored.parents:
+        raise HTTPException(500, "Stored document path is invalid.")
+    db.delete(document)
+    db.commit()
+    stored.unlink(missing_ok=True)
