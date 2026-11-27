@@ -1,0 +1,3 @@
+# Dependency installation will be added with the working backend.
+# Planned: FastAPI, Uvicorn, LangGraph, PostgreSQL/pgvector client,
+# PDF and DOCX parsers, HTTP client, provider integrations, pytest.

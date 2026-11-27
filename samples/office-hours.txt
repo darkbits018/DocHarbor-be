@@ -1,0 +1,5 @@
+Doc Harbour Demo Company — fictional sample data
+
+The office is open Monday to Friday, from 9:00 AM to 5:00 PM.
+The office is closed on Saturdays and Sundays.
+For questions not covered by these documents, contact the business owner.
