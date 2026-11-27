@@ -1,7 +1,11 @@
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Document, DocumentChunk
+
+logger = logging.getLogger(__name__)
 
 
 def search_chunks(db: Session, query_embedding: list[float], limit: int = 5) -> list[dict]:
@@ -13,7 +17,7 @@ def search_chunks(db: Session, query_embedding: list[float], limit: int = 5) -> 
         .order_by(distance)
         .limit(limit)
     ).all()
-    return [
+    results = [
         {
             "document_name": filename,
             "reference": chunk.source_reference,
@@ -22,3 +26,14 @@ def search_chunks(db: Session, query_embedding: list[float], limit: int = 5) -> 
         }
         for chunk, filename, distance_value in rows
     ]
+    logger.info(
+        "Retrieval complete: candidates=%d requested_limit=%d",
+        len(results), limit,
+    )
+    for rank, item in enumerate(results, start=1):
+        logger.info(
+            "Retrieval candidate #%d document=%r reference=%r cosine_distance=%.4f chunk_chars=%d",
+            rank, item["document_name"], item["reference"],
+            item["distance"], len(item["text"]),
+        )
+    return results

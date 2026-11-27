@@ -9,6 +9,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://docharbor:replace
 CF_ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID", "")
 CF_API_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN", "")
 CF_EMBEDDING_MODEL = "@cf/baai/bge-m3"
+SETTINGS_ENCRYPTION_KEY = os.getenv("SETTINGS_ENCRYPTION_KEY", "")
 CHAT_PROVIDER = os.getenv("CHAT_PROVIDER", "openai")
 CHAT_MODEL = os.getenv("CHAT_MODEL", "gpt-4o-mini")
 EMBEDDING_DIMENSIONS = 1024

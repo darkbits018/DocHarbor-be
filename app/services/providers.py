@@ -4,6 +4,8 @@ PROVIDERS = {
     "openai": "https://api.openai.com/v1/chat/completions",
     "anthropic": "https://api.anthropic.com/v1/messages",
     "google": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    "groq": "https://api.groq.com/openai/v1/chat/completions",
+    "openrouter": "https://openrouter.ai/api/v1/chat/completions",
 }
 
 async def generate_answer(provider: str, model: str, api_key: str, messages: list[dict], base_url: str = "") -> str:

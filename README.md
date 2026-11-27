@@ -23,6 +23,13 @@ In PowerShell from this folder:
 
 5. Put the Neon connection URL into `DATABASE_URL`. Change its scheme to `postgresql+psycopg://` and keep `sslmode=require`.
 6. In the Cloudflare dashboard, create a Workers AI API token with Workers AI access, then copy your account ID and token into `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in `.env`. Never commit or share `.env`.
+7. Generate a settings encryption key and put it into `SETTINGS_ENCRYPTION_KEY` in `.env`:
+
+   ```powershell
+   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+   ```
+
+   Keep this key private and stable. The BYOK provider key is encrypted in PostgreSQL with it; if you lose or change it, the saved provider key cannot be decrypted.
 ```
 
 ## Install and run the API
@@ -55,10 +62,11 @@ The API accepts PDF, DOCX, and UTF-8 TXT files up to 20 MB by default. Duplicate
 - `POST /api/documents` — upload one document.
 - `GET /api/documents` — list uploaded documents and chunk counts.
 - `DELETE /api/documents/{id}` — delete a document, its chunks, embeddings, and local original.
-- `PUT /api/settings` / `GET /api/settings` — accept the provider, model, API key, optional OpenAI-compatible base URL, and owner contact URL from the frontend BYOK form. Chat credentials are not environment settings; the backend keeps them in memory only for the current process and never returns the key.
-- `POST /api/chat` — ask a question and receive an answer with document references.
+- `PUT /api/settings` / `GET /api/settings` — save provider, model, encrypted BYOK key, optional base URL, and contact URL in PostgreSQL. The API never returns the provider key.
+- `POST /api/chat` — ask a question, save the user and assistant messages, and receive an answer with document references.
+- `GET /api/chat/history` — load the single persistent conversation and its citations.
 
-Supported chat providers: OpenAI, Anthropic, and Google. Model names are entered as provider-specific values. The answer workflow retrieves up to five chunks and returns the exact unsupported-answer message when the closest result is below the configured relevance threshold or the model omits valid source citations. This citation check is a guardrail, not a guarantee that every generated claim is entailed by its source.
-- Similarity retrieval is available in `app.services.retrieval.search_chunks` and will be used by the upcoming chat endpoint.
+Supported chat providers: Google Gemini, Groq, OpenRouter, OpenAI, and Anthropic. The answer workflow retrieves up to five chunks and returns the exact unsupported-answer message when the closest result is below the configured relevance threshold or the model omits valid source citations. This citation check is a guardrail, not a guarantee that every generated claim is entailed by its source.
+The MVP keeps one conversation thread for this single-client workspace. Settings and chat history survive backend restarts because PostgreSQL stores them. Tables are created at startup; existing document tables are left intact.
 
 Tables are created at API startup. `DATABASE_URL` is the only database setting the app needs, so later you can point it at a local PostgreSQL + pgvector installation by changing that value. Authentication is not implemented; keep this development server local and do not expose it publicly. Do not put real client documents in the free development database.
